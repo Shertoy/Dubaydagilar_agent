@@ -2,8 +2,8 @@
 Buyruq rejimi.
 
 Sen botga shaxsiy xabar yozganingda shu modul ishga tushadi.
-Kalit so'z asosida uch turdagi buyruqni ajratadi: ob-havo, shaxsiy e'lon,
-A-Z qo'llanma.
+Kalit so'z asosida turdagi buyruqni ajratadi: sozlama, ob-havo, shaxsiy
+e'lon, A-Z qo'llanma.
 """
 
 import logging
@@ -11,12 +11,14 @@ from utils.telegram_api import send_message, post_to_channel, post_photo_to_chan
 from utils.weather_post import create_and_post_weather
 from utils.listing_handler import analyze_listing
 from utils.guide_handler import generate_and_publish_guide
+from utils.settings import set_setting
 
 logger = logging.getLogger("command_router")
 
+SETTINGS_KEYWORDS = ["sozlama"]
 WEATHER_KEYWORDS = ["ob-havo", "ob havo", "obhavo"]
-LISTING_KEYWORDS = ["ijaraga", "ijarага", "sotiladi", "sotaman", "sotuv", "xizmat"]
-GUIDE_KEYWORDS = ["qo'llanma", "qollanma", "qo'llanmа", "a dan z", "a-z", "qanday ochish", "talablari"]
+LISTING_KEYWORDS = ["ijaraga", "sotiladi", "sotaman", "sotuv", "xizmat"]
+GUIDE_KEYWORDS = ["qo'llanma", "qollanma", "a dan z", "a-z", "qanday ochish", "talablari"]
 
 
 def route_command(chat_id, text, photo=None):
@@ -24,6 +26,12 @@ def route_command(chat_id, text, photo=None):
 
     if not text and not photo:
         send_message(chat_id, "Xabar bo'sh keldi. Matn yoz.")
+        return
+
+    # Sozlama eng birinchi tekshiriladi, chunki "sozlama ob-havo ..." kabi
+    # xabarlar boshqa buyruqlar bilan chalkashib ketmasligi kerak
+    if any(kw in text_lower for kw in SETTINGS_KEYWORDS):
+        handle_settings_command(chat_id, text_lower)
         return
 
     if any(kw in text_lower for kw in WEATHER_KEYWORDS):
@@ -43,7 +51,27 @@ def route_command(chat_id, text, photo=None):
         "Buyruqni aniqlay olmadim. Quyidagilardan birini sina:\n"
         "- ob-havo haqida post qil\n"
         "- ijaraga/sotuvga oid e'lon matni yubor\n"
-        "- biror mavzu bo'yicha A-Z qo'llanma yoz"
+        "- biror mavzu bo'yicha A-Z qo'llanma yoz\n"
+        "- sozlama emoji yoqilsin / sozlama emoji ochirilsin"
+    )
+
+
+def handle_settings_command(chat_id, text_lower):
+    if "emoji" in text_lower:
+        if any(w in text_lower for w in ["ochir", "off", "kerak emas"]):
+            set_setting("emoji_enabled", False)
+            send_message(chat_id, "Emoji o'chirildi. Endi postlarda emoji ishlatilmaydi.")
+        elif any(w in text_lower for w in ["yoq", "on", "kerak"]):
+            set_setting("emoji_enabled", True)
+            send_message(chat_id, "Emoji yoqildi. Endi postlarda mos joylarda emoji ishlatiladi.")
+        else:
+            send_message(chat_id, "Tushunmadim. 'sozlama emoji yoqilsin' yoki 'sozlama emoji ochirilsin' deb yoz.")
+        return
+
+    send_message(
+        chat_id,
+        "Hozircha faqat emoji sozlamasi bor.\n"
+        "'sozlama emoji yoqilsin' yoki 'sozlama emoji ochirilsin' deb yoz."
     )
 
 
@@ -64,7 +92,6 @@ def handle_listing_command(chat_id, text, photo):
     post_text = result["post_text"]
 
     if photo:
-        # photo - Telegram'dan kelgan hajmlar ro'yxati, eng kattasini olamiz
         file_id = photo[-1]["file_id"]
         tg_result = post_photo_to_channel(file_id, caption=post_text)
     else:
