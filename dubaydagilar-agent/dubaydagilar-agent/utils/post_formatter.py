@@ -4,29 +4,18 @@ Bitta jamlangan yangilik posti uchun matn tuzadi.
 Format:
 - Qalin sarlovha
 - Gemini yaratgan kirish jumlasi
-- Kategoriya bo'yicha guruhlangan, bosilsa manbaga o'tadigan sarlovhalar
+- Ketma-ket, guruhsiz ro'yxat: har bir sarlovha bosilsa manbaga o'tadi
 """
-
-from utils.news_translator import CATEGORY_LABELS_UZ
 
 
 def build_digest_message(intro, items):
-    """items har birida 'title_uz', 'link', 'category' bo'lishi kerak."""
+    """items har birida 'title_uz', 'link' bo'lishi kerak. Ketma-ket, guruhsiz ro'yxat."""
 
     lines = ["<b>BAAdagi qaynoq yangiliklar</b>", intro, ""]
 
-    # Kategoriya bo'yicha guruhlash, faqat elementi bor kategoriyalar ko'rsatiladi
-    grouped = {}
-    for item in items:
-        grouped.setdefault(item["category"], []).append(item)
-
-    for category, cat_items in grouped.items():
-        label = CATEGORY_LABELS_UZ.get(category, category)
-        lines.append(f"<b>{label}</b>")
-        for it in cat_items:
-            title = it["title_uz"].strip()
-            link = it["link"]
-            lines.append(f"• <a href=\"{link}\">{title}</a>")
-        lines.append("")
+    for it in items:
+        title = it["title_uz"].strip()
+        link = it["link"]
+        lines.append(f"• <a href=\"{link}\">{title}</a>")
 
     return "\n".join(lines).strip()
