@@ -2,19 +2,21 @@
 Buyruq rejimi.
 
 Sen botga shaxsiy xabar yozganingda shu modul ishga tushadi.
-Hozircha oddiy kalit so'z asosida yo'naltiradi (1-bosqich skeleti).
-3-bosqichda bu qism Gemini orqali "niyatni aniqlash" (intent detection)
-bilan almashtiriladi, aniqroq ishlaydi.
+Kalit so'z asosida uch turdagi buyruqni ajratadi: ob-havo, shaxsiy e'lon,
+A-Z qo'llanma.
 """
 
 import logging
-from utils.telegram_api import send_message
+from utils.telegram_api import send_message, post_to_channel, post_photo_to_channel
+from utils.weather_post import create_and_post_weather
+from utils.listing_handler import analyze_listing
+from utils.guide_handler import generate_and_publish_guide
 
 logger = logging.getLogger("command_router")
 
-WEATHER_KEYWORDS = ["ob-havo", "ob havo", "havo"]
-LISTING_KEYWORDS = ["ijaraga", "sotiladi", "sotaman", "xizmat"]
-GUIDE_KEYWORDS = ["qo'llanma", "qollanma", "a dan z", "a-z"]
+WEATHER_KEYWORDS = ["ob-havo", "ob havo", "obhavo"]
+LISTING_KEYWORDS = ["ijaraga", "ijarага", "sotiladi", "sotaman", "sotuv", "xizmat"]
+GUIDE_KEYWORDS = ["qo'llanma", "qollanma", "qo'llanmа", "a dan z", "a-z", "qanday ochish", "talablari"]
 
 
 def route_command(chat_id, text, photo=None):
@@ -36,7 +38,6 @@ def route_command(chat_id, text, photo=None):
         handle_guide_command(chat_id, text)
         return
 
-    # Hech biriga to'g'ri kelmasa
     send_message(
         chat_id,
         "Buyruqni aniqlay olmadim. Quyidagilardan birini sina:\n"
@@ -47,23 +48,36 @@ def route_command(chat_id, text, photo=None):
 
 
 def handle_weather_command(chat_id):
-    # TODO 5-bosqich: utils/weather.py orqali OpenWeatherMap'dan ma'lumot olish
-    # keyin Gemini orqali qisqa post matni yaratish va kanalga joylash
-    send_message(chat_id, "Ob-havo posti tayyorlanmoqda (bu funksiya 5-bosqichda to'liq ishga tushadi).")
-    logger.info("Weather command chaqirildi, hali stub")
+    send_message(chat_id, "Ob-havo posti tayyorlanmoqda...")
+    success, message = create_and_post_weather()
+    send_message(chat_id, message)
 
 
 def handle_listing_command(chat_id, text, photo):
-    # TODO 5-bosqich: Gemini orqali matndan mavzu (ijara/sotuv/xizmat) va
-    # kerakli maydonlarni (narx, manzil va h.k.) ajratib olish.
-    # Yetarli bo'lsa post qilish, bo'lmasa nima yetishmayotganini so'rash.
-    send_message(chat_id, "E'lon qabul qilindi, qayta ishlanmoqda (bu funksiya 5-bosqichda to'liq ishga tushadi).")
-    logger.info("Listing command chaqirildi, hali stub. Rasm bormi: %s", bool(photo))
+    send_message(chat_id, "E'lon qayta ishlanmoqda...")
+    result = analyze_listing(text)
+
+    if result["status"] == "missing":
+        send_message(chat_id, result["question"])
+        return
+
+    post_text = result["post_text"]
+
+    if photo:
+        # photo - Telegram'dan kelgan hajmlar ro'yxati, eng kattasini olamiz
+        file_id = photo[-1]["file_id"]
+        tg_result = post_photo_to_channel(file_id, caption=post_text)
+    else:
+        tg_result = post_to_channel(post_text)
+
+    if tg_result.get("ok"):
+        send_message(chat_id, "E'lon kanalga joylandi.")
+    else:
+        logger.error("E'lonni kanalga joylashda xato: %s", tg_result)
+        send_message(chat_id, "E'lon tayyor bo'ldi, lekin kanalga joylashda xato yuz berdi.")
 
 
 def handle_guide_command(chat_id, text):
-    # TODO 5-bosqich: Gemini orqali to'liq qo'llanma matnini yaratish,
-    # Telegraph API orqali sahifa qilib chop etish, kanalga qisqa post +
-    # Telegraph havolasi bilan joylash.
-    send_message(chat_id, "Qo'llanma tayyorlanmoqda (bu funksiya 5-bosqichda to'liq ishga tushadi).")
-    logger.info("Guide command chaqirildi, hali stub")
+    send_message(chat_id, "Qo'llanma tayyorlanmoqda, bu biroz vaqt olishi mumkin...")
+    success, message = generate_and_publish_guide(text)
+    send_message(chat_id, message)
