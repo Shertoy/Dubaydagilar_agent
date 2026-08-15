@@ -4,6 +4,7 @@ import logging
 from utils.weather import get_dubai_weather
 from utils.gemini_client import call_gemini
 from utils.telegram_api import post_to_channel
+from utils.settings import get_setting
 
 logger = logging.getLogger("weather_post")
 
@@ -16,6 +17,12 @@ def create_and_post_weather():
     if not data:
         return False, "Ob-havo ma'lumotini olishda xato yuz berdi. OPENWEATHER_API_KEY to'g'riligini tekshir."
 
+    emoji_instruction = (
+        "Postda mos joylarda (harorat, quyosh, shamol, suv kabi so'zlar yonida) tabiiy tarzda emoji ishlat."
+        if get_setting("emoji_enabled")
+        else "Postda emoji ishlatma, faqat oddiy matn yoz."
+    )
+
     prompt = f"""Dubay shahri uchun bugungi ob-havo haqida qisqa (3-4 jumla), o'zbek tilida, jonli
 va foydali Telegram posti yoz. Quyidagi ma'lumotlardan foydalan:
 
@@ -26,6 +33,7 @@ Namlik: {data['humidity']} foiz
 Shamol tezligi: {data['wind_speed']} m/s
 
 Postda amaliy maslahat ham bo'lsin (masalan qanday kiyinish, suv ichish, quyoshdan himoyalanish).
+{emoji_instruction}
 Faqat post matnini yoz, boshqa hech narsa qo'shma, sarlovha yoki izoh yozma."""
 
     try:
