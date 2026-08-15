@@ -5,16 +5,21 @@ Oddiy JSON fayl ishlatamiz, chunki hajm katta emas (bir necha ming havola).
 Fayl Render'ning disk fazosida saqlanadi. DIQQAT: Render'ning bepul rejasida
 disk doimiy emas, deploy qilinganda tozalanishi mumkin. Agar shu muammo
 chiqsa, keyinroq bepul bazaga (masalan Supabase) o'tkazamiz.
+
+threading.Lock qo'shilgan: ikki jarayon bir vaqtda yozsa, fayl buzilib
+qolmasligi uchun.
 """
 
 import json
 import os
+import threading
 import logging
 from config import SEEN_LINKS_DB_PATH
 
 logger = logging.getLogger("seen_links")
 
 MAX_STORED_LINKS = 2000  # fayl cheksiz o'smasligi uchun
+_lock = threading.Lock()
 
 
 def _load():
@@ -38,13 +43,15 @@ def is_seen(link):
 
 
 def mark_seen(link):
-    links = _load()
-    if link not in links:
-        links.append(link)
-        _save(links)
+    with _lock:
+        links = _load()
+        if link not in links:
+            links.append(link)
+            _save(links)
 
 
 def filter_new(links):
     """Berilgan ro'yxatdan faqat hali postlanmagan havolalarni qaytaradi."""
-    seen = set(_load())
+    with _lock:
+        seen = set(_load())
     return [link for link in links if link not in seen]
