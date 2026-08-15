@@ -11,7 +11,7 @@ import logging
 import threading
 from flask import Flask, request, jsonify
 
-from config import ADMIN_USER_ID, TELEGRAM_BOT_TOKEN
+from config import ADMIN_USER_ID, TELEGRAM_BOT_TOKEN, validate_config
 from utils.telegram_api import send_message, answer_webhook_ok
 from handlers.command_router import route_command
 from handlers.auto_news import run_auto_news_cycle
@@ -21,6 +21,12 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("app")
+
+try:
+    validate_config()
+except RuntimeError as e:
+    logger.error("SOZLAMA XATOSI: %s", e)
+    logger.error("Render'da Environment Variables bo'limini tekshir. Server baribir ishga tushadi, lekin funksiyalar ishlamasligi mumkin.")
 
 app = Flask(__name__)
 
