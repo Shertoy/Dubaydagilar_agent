@@ -10,6 +10,9 @@ logger = logging.getLogger("telegram_api")
 
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+# Telegram'ning rasm ostidagi yozuv (caption) uchun belgilar chegarasi
+CAPTION_LIMIT = 1024
+
 
 def send_message(chat_id, text, disable_preview=False, parse_mode="HTML"):
     """Berilgan chat_id'ga (shaxsiy yoki kanal) matn xabar yuboradi."""
@@ -27,17 +30,32 @@ def send_message(chat_id, text, disable_preview=False, parse_mode="HTML"):
 
 
 def send_photo(chat_id, photo_file_id_or_url, caption="", parse_mode="HTML"):
-    """Rasm bilan xabar yuboradi. photo_file_id_or_url Telegram file_id yoki tashqi URL bo'lishi mumkin."""
+    """
+    Rasm bilan xabar yuboradi. photo_file_id_or_url Telegram file_id yoki tashqi URL bo'lishi mumkin.
+    Agar caption 1024 belgidan uzun bo'lsa, rasm ostiga qisqartirilgan matn qo'yiladi,
+    to'liq matn esa alohida xabar sifatida ketidan yuboriladi (hech narsa yo'qolmaydi).
+    """
     url = f"{BASE_URL}/sendPhoto"
+
+    caption_to_send = caption
+    needs_followup = False
+    if len(caption) > CAPTION_LIMIT:
+        caption_to_send = caption[: CAPTION_LIMIT - 20].rstrip() + "... (davomi quyida)"
+        needs_followup = True
+
     payload = {
         "chat_id": chat_id,
         "photo": photo_file_id_or_url,
-        "caption": caption,
+        "caption": caption_to_send,
         "parse_mode": parse_mode,
     }
     resp = requests.post(url, json=payload, timeout=30)
     if not resp.ok:
         logger.error("sendPhoto xato: %s", resp.text)
+
+    if needs_followup and resp.ok:
+        send_message(chat_id, caption)
+
     return resp.json()
 
 
