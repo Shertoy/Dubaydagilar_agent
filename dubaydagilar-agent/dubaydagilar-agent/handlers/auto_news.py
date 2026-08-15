@@ -4,17 +4,18 @@ Avtomatik yangilik tsikli.
 cron-job.org kuniga 2 marta /trigger/morning va /trigger/evening
 manzillariga so'rov yuboradi, shu modul ishga tushadi.
 
-3-bosqich holati: yig'ilgan yangiliklar Gemini orqali o'zbek tiliga
-tarjima qilinadi, bitta jamlangan postga birlashtiriladi (har bir
-sarlovha bosilsa manba sahifasiga olib boradi), kanalga bitta xabar
-sifatida joylanadi.
+Yig'ilgan yangiliklar Gemini orqali o'zbek tiliga tarjima qilinadi
+(avval ommaviy, ishlamasa birma-bir), bitta jamlangan postga
+birlashtiriladi, kanalga joylanadi. Agar ba'zi sarlovhalar tarjima
+qilinolmasa, admin'ga xabar beriladi.
 """
 
 import logging
+from config import ADMIN_USER_ID
 from sources.news_gatherer import gather_fresh_news, diversify_and_limit
 from utils.news_translator import translate_items
 from utils.post_formatter import build_digest_message
-from utils.telegram_api import post_to_channel
+from utils.telegram_api import post_to_channel, send_message
 from utils.seen_links import mark_seen
 
 logger = logging.getLogger("auto_news")
@@ -35,16 +36,22 @@ def run_auto_news_cycle(slot):
     selected = diversify_and_limit(fresh_items, max_total=MAX_ITEMS_PER_DIGEST)
     logger.info("Postga tanlangan elementlar soni: %d", len(selected))
 
-    intro, translated_items = translate_items(selected)
+    intro, translated_items, failed_count = translate_items(selected)
     message = build_digest_message(intro, translated_items)
 
-    # Ko'p havola bo'lgani uchun avtomatik preview'ni o'chiramiz,
-    # aks holda faqat bitta tasodifiy havola preview bo'lib chiqadi
     result = post_to_channel(message, disable_preview=True)
 
     if result.get("ok"):
         for item in translated_items:
             mark_seen(item["link"])
         logger.info("Jamlangan post muvaffaqiyatli joylandi: %d ta yangilik", len(translated_items))
+
+        if failed_count > 0:
+            send_message(
+                ADMIN_USER_ID,
+                f"Diqqat: {slot} postida {failed_count} ta sarlovha tarjima qilinolmadi, "
+                f"ingliz tilida qoldi. Odatda bu Gemini limiti tugaganda yuz beradi, "
+                f"keyingi tsiklda tuzalishi kerak."
+            )
     else:
         logger.error("Jamlangan postni joylashda xato: %s", result)
