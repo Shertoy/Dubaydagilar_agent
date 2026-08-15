@@ -43,3 +43,24 @@ def gather_fresh_news():
         logger.info("Kategoriya '%s': %d yangi element topildi", category, len(category_links_seen_this_run))
 
     return fresh_items
+
+
+def diversify_and_limit(items, max_total=10):
+    """
+    Kategoriyalar orasidan navbat bilan (round-robin) tanlab, jami max_total
+    tagacha element qaytaradi. Bitta kategoriya butun postni bosib olmasligi uchun.
+    """
+    by_category = {}
+    for item in items:
+        by_category.setdefault(item["category"], []).append(item)
+
+    result = []
+    while len(result) < max_total and any(by_category.values()):
+        for category in list(by_category.keys()):
+            if not by_category[category]:
+                continue
+            result.append(by_category[category].pop(0))
+            if len(result) >= max_total:
+                break
+
+    return result

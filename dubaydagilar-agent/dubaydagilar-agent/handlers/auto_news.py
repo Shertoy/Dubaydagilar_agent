@@ -4,30 +4,22 @@ Avtomatik yangilik tsikli.
 cron-job.org kuniga 2 marta /trigger/morning va /trigger/evening
 manzillariga so'rov yuboradi, shu modul ishga tushadi.
 
-2-bosqich holati: yangiliklar Google News orqali yig'iladi, dublikatlar
-filtrlanadi, sarlovha va havola bilan (hali tarjimasiz) kanalga joylanadi.
-
-3-bosqichda: har bir yangilik uchun Gemini orqali qisqa xulosa va
-tarjima qo'shiladi, format skrindagi ko'rinishga keltiriladi.
+3-bosqich holati: yig'ilgan yangiliklar Gemini orqali o'zbek tiliga
+tarjima qilinadi, bitta jamlangan postga birlashtiriladi (har bir
+sarlovha bosilsa manba sahifasiga olib boradi), kanalga bitta xabar
+sifatida joylanadi.
 """
 
 import logging
-from sources.news_gatherer import gather_fresh_news
+from sources.news_gatherer import gather_fresh_news, diversify_and_limit
+from utils.news_translator import translate_items
+from utils.post_formatter import build_digest_message
 from utils.telegram_api import post_to_channel
 from utils.seen_links import mark_seen
 
 logger = logging.getLogger("auto_news")
 
-MAX_POSTS_PER_CYCLE = 6
-
-CATEGORY_LABELS = {
-    "turizm": "Turizm",
-    "viza_rezidentlik": "Viza / Rezidentlik",
-    "elchixona": "Elchixona",
-    "jinoyat_xavfsizlik": "Xavfsizlik",
-    "biznes_soliq": "Biznes / Soliq",
-    "umumiy": "Umumiy",
-}
+MAX_ITEMS_PER_DIGEST = 10
 
 
 def run_auto_news_cycle(slot):
@@ -40,25 +32,19 @@ def run_auto_news_cycle(slot):
         logger.info("Yangi yangilik topilmadi, tsikl shu bilan tugaydi")
         return
 
-    posted_count = 0
-    for item in fresh_items:
-        if posted_count >= MAX_POSTS_PER_CYCLE:
-            break
+    selected = diversify_and_limit(fresh_items, max_total=MAX_ITEMS_PER_DIGEST)
+    logger.info("Postga tanlangan elementlar soni: %d", len(selected))
 
-        label = CATEGORY_LABELS.get(item["category"], item["category"])
-        # TODO 3-bosqich: quyidagi qatorlar Gemini orqali tarjima/xulosa bilan almashtiriladi
-        text = (
-            f"<b>[{label}]</b>\n"
-            f"{item['title']}\n\n"
-            f"Manba: {item['source'] or 'nomalum'}\n"
-            f"{item['link']}"
-        )
+    intro, translated_items = translate_items(selected)
+    message = build_digest_message(intro, translated_items)
 
-        result = post_to_channel(text)
-        if result.get("ok"):
+    # Ko'p havola bo'lgani uchun avtomatik preview'ni o'chiramiz,
+    # aks holda faqat bitta tasodifiy havola preview bo'lib chiqadi
+    result = post_to_channel(message, disable_preview=True)
+
+    if result.get("ok"):
+        for item in translated_items:
             mark_seen(item["link"])
-            posted_count += 1
-        else:
-            logger.error("Post qilishda xato: %s", result)
-
-    logger.info("Tsikl tugadi. Postlangan: %d", posted_count)
+        logger.info("Jamlangan post muvaffaqiyatli joylandi: %d ta yangilik", len(translated_items))
+    else:
+        logger.error("Jamlangan postni joylashda xato: %s", result)
