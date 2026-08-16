@@ -1,39 +1,48 @@
 """
 Har bir mavzu (kategoriya) uchun Google News qidiruv so'zlari.
 
-Har bir kategoriyada bir nechta qidiruv bor:
-- Rasmiy manbaga qaratilgan (site:...) qidiruv, eng ishonchli natija beradi
-- Umumiy kalit so'z qidiruvi, kengroq qamrov uchun
+Qidiruvlar ataylab tor va aniq qilib tanlangan: umumiy "Dubay turizmi"
+kabi keng mavzular emas, balki O'zbekiston fuqarolariga yoki BAA ga
+borish/yashashni rejalashtirgan odamlarga bevosita tegishli narsalar.
+
+Topilgan natijalar keyin utils/news_filter.py orqali яна bir marta
+sifat filtridan o'tadi (reklama, umumiy "about" sahifalar chiqarib
+tashlanadi).
 """
 
 CATEGORY_QUERIES = {
-    "turizm": [
-        "site:visitdubai.com",
-        "site:mediaoffice.ae tourism",
-        "Dubai new attraction OR resort OR beach club opening",
-    ],
     "viza_rezidentlik": [
-        "site:gdrfad.gov.ae",
-        "site:u.ae visa",
-        "UAE visa rule change OR golden visa OR residency",
+        "Uzbekistan citizens UAE visa",
+        "O'zbekiston fuqarolari BAA viza",
+        "UAE tourist visa extension Uzbekistan",
+        "site:gdrfad.gov.ae Uzbekistan",
+    ],
+    "moliya_xarid": [
+        "UAE tax refund tourists airport",
+        "Dubai VAT refund cashback shopping",
+        "UAE corporate tax increase business",
     ],
     "elchixona": [
-        "site:uzembassy.ae",
+        "Uzbekistan embassy UAE citizens help",
+        "O'zbekiston elchixonasi BAA fuqaro",
+        "Uzbekistan consulate UAE rescue OR repatriation",
     ],
-    "jinoyat_xavfsizlik": [
-        "site:dubaipolice.gov.ae",
-        "Dubai crime OR fraud OR scam warning",
+    "xavfsizlik": [
+        "Uzbek national arrested Dubai",
+        "O'zbek jinoyatchi BAA ushlandi",
+        "Dubai police new crime detection technology",
+        "UAE human trafficking arrest Uzbekistan",
     ],
     "biznes_soliq": [
-        "site:dubaichamber.com",
+        "UAE corporate tax business news",
+        "UAE free zone business setup update",
         "site:mof.gov.ae UAE tax",
-        "UAE corporate tax OR business setup OR free zone",
     ],
     "umumiy": [
-        "site:wam.ae",
-        "Dubai news today",
+        "UAE new law policy change",
+        "site:wam.ae Uzbekistan",
     ],
 }
 
-# Har bir kategoriyadan bir tsiklda nechta yangilik olishning yuqori chegarasi
+# Har bir so'rovdan nechta natija olishning yuqori chegarasi
 MAX_ITEMS_PER_CATEGORY = 3
