@@ -13,6 +13,7 @@ qilinolmasa, admin'ga xabar beriladi.
 import logging
 from config import ADMIN_USER_ID
 from sources.news_gatherer import gather_fresh_news, diversify_and_limit
+from utils.news_filter import filter_relevant
 from utils.news_translator import translate_items
 from utils.post_formatter import build_digest_message
 from utils.telegram_api import post_to_channel, send_message
@@ -33,7 +34,14 @@ def run_auto_news_cycle(slot):
         logger.info("Yangi yangilik topilmadi, tsikl shu bilan tugaydi")
         return
 
-    selected = diversify_and_limit(fresh_items, max_total=MAX_ITEMS_PER_DIGEST)
+    relevant_items = filter_relevant(fresh_items)
+    logger.info("Filtrdan keyin qolgan elementlar: %d", len(relevant_items))
+
+    if not relevant_items:
+        logger.info("Filtrdan keyin hech narsa qolmadi, tsikl shu bilan tugaydi")
+        return
+
+    selected = diversify_and_limit(relevant_items, max_total=MAX_ITEMS_PER_DIGEST)
     logger.info("Postga tanlangan elementlar soni: %d", len(selected))
 
     intro, translated_items, failed_count = translate_items(selected)
