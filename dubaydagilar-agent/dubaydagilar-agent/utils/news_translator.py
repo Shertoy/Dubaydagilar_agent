@@ -18,10 +18,10 @@ from utils.gemini_client import call_gemini, extract_json
 logger = logging.getLogger("news_translator")
 
 CATEGORY_LABELS_UZ = {
-    "turizm": "Turizm",
     "viza_rezidentlik": "Viza va rezidentlik",
+    "moliya_xarid": "Moliya va xarid",
     "elchixona": "Elchixona",
-    "jinoyat_xavfsizlik": "Xavfsizlik",
+    "xavfsizlik": "Xavfsizlik",
     "biznes_soliq": "Biznes va soliq",
     "umumiy": "Umumiy yangiliklar",
 }
