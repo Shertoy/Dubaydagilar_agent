@@ -26,6 +26,11 @@ TELEGRAPH_ACCESS_TOKEN = os.environ.get("TELEGRAPH_ACCESS_TOKEN", "")  # bo'sh b
 # Baza fayli (postlangan havolalarni saqlash uchun, dedup)
 SEEN_LINKS_DB_PATH = os.environ.get("SEEN_LINKS_DB_PATH", "seen_links.json")
 
+# /trigger manzilini himoya qilish uchun maxfiy so'z.
+# Bo'sh bo'lsa, manzil himoyasiz qoladi (faqat eski sozlash bilan mosligi uchun) —
+# TAVSIYA: buni albatta o'rnat.
+TRIGGER_SECRET = os.environ.get("TRIGGER_SECRET", "")
+
 REQUIRED_VARS = ["TELEGRAM_BOT_TOKEN", "ADMIN_USER_ID", "GEMINI_API_KEY"]
 
 
