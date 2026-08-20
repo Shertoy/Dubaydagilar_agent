@@ -11,7 +11,7 @@ import logging
 import threading
 from flask import Flask, request, jsonify
 
-from config import ADMIN_USER_ID, TELEGRAM_BOT_TOKEN, validate_config
+from config import ADMIN_USER_ID, TELEGRAM_BOT_TOKEN, TRIGGER_SECRET, validate_config
 from utils.telegram_api import send_message, answer_webhook_ok
 from handlers.command_router import route_command
 from handlers.auto_news import run_auto_news_cycle
@@ -28,7 +28,16 @@ except RuntimeError as e:
     logger.error("SOZLAMA XATOSI: %s", e)
     logger.error("Render'da Environment Variables bo'limini tekshir. Server baribir ishga tushadi, lekin funksiyalar ishlamasligi mumkin.")
 
+if not TRIGGER_SECRET:
+    logger.warning(
+        "TRIGGER_SECRET o'rnatilmagan! /trigger manzili hozircha himoyasiz — "
+        "buni tezroq o'rnatishni tavsiya qilamiz."
+    )
+
 app = Flask(__name__)
+
+# Bir vaqtda ikkita avtomatik tsikl ishlab ketmasligi uchun
+_cycle_lock = threading.Lock()
 
 
 @app.route("/", methods=["GET"])
@@ -81,9 +90,22 @@ def trigger_auto_cycle(slot):
     """
     cron-job.org shu manzilga so'rov yuboradi.
     slot: 'morning' yoki 'evening'
+
+    Himoya: agar TRIGGER_SECRET o'rnatilgan bo'lsa, ?secret=... parametri
+    to'g'ri kelishi shart, aks holda so'rov rad etiladi.
     """
+    if TRIGGER_SECRET:
+        provided = request.args.get("secret", "")
+        if provided != TRIGGER_SECRET:
+            logger.warning("Trigger uchun noto'g'ri yoki yo'q maxfiy so'z bilan urinish")
+            return jsonify({"error": "ruxsat yo'q"}), 403
+
     if slot not in ("morning", "evening"):
         return jsonify({"error": "noto'g'ri slot"}), 400
+
+    if _cycle_lock.locked():
+        logger.warning("Boshqa tsikl allaqachon ishlayapti, bu so'rov o'tkazib yuborildi: %s", slot)
+        return jsonify({"status": "skipped", "reason": "boshqa tsikl ishlayapti"}), 200
 
     logger.info("Avtomatik tsikl boshlandi: %s", slot)
 
@@ -94,11 +116,16 @@ def trigger_auto_cycle(slot):
 
 
 def run_auto_news_cycle_safe(slot):
+    if not _cycle_lock.acquire(blocking=False):
+        logger.warning("Tsikl qulfini olib bo'lmadi, o'tkazib yuboriladi: %s", slot)
+        return
     try:
         run_auto_news_cycle(slot)
     except Exception:
         logger.exception("Avtomatik tsiklda xato: %s", slot)
         send_message(ADMIN_USER_ID, f"{slot} tsiklida xato yuz berdi. Loglarni tekshir.")
+    finally:
+        _cycle_lock.release()
 
 
 if __name__ == "__main__":
