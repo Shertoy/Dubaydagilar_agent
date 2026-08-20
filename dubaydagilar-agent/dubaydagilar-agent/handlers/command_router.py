@@ -4,6 +4,11 @@ Buyruq rejimi.
 Sen botga shaxsiy xabar yozganingda shu modul ishga tushadi.
 Kalit so'z asosida turdagi buyruqni ajratadi: sozlama, ob-havo, shaxsiy
 e'lon, A-Z qo'llanma.
+
+Agar bot e'lon uchun narx (yoki boshqa ma'lumot) so'rab, sen shunchaki
+javob yozsang ("5000 dirham" kabi, hech qanday kalit so'zsiz), bot buni
+oldingi e'lonning davomi deb tushunadi — alohida "tushunmadim" javobi
+bermaydi.
 """
 
 import logging
@@ -12,6 +17,7 @@ from utils.weather_post import create_and_post_weather
 from utils.listing_handler import analyze_listing
 from utils.guide_handler import generate_and_publish_guide
 from utils.settings import set_setting
+from utils.pending_state import get_pending_listing, set_pending_listing, clear_pending_listing
 
 logger = logging.getLogger("command_router")
 
@@ -28,22 +34,30 @@ def route_command(chat_id, text, photo=None):
         send_message(chat_id, "Xabar bo'sh keldi. Matn yoz.")
         return
 
-    # Sozlama eng birinchi tekshiriladi, chunki "sozlama ob-havo ..." kabi
-    # xabarlar boshqa buyruqlar bilan chalkashib ketmasligi kerak
     if any(kw in text_lower for kw in SETTINGS_KEYWORDS):
         handle_settings_command(chat_id, text_lower)
         return
 
     if any(kw in text_lower for kw in WEATHER_KEYWORDS):
+        clear_pending_listing()
         handle_weather_command(chat_id)
         return
 
     if any(kw in text_lower for kw in LISTING_KEYWORDS):
+        # Bu yangi e'lon, eskisini unutamiz
         handle_listing_command(chat_id, text, photo)
         return
 
     if any(kw in text_lower for kw in GUIDE_KEYWORDS):
+        clear_pending_listing()
         handle_guide_command(chat_id, text)
+        return
+
+    # Hech qanday kalit so'z topilmadi — bu oldingi e'lonning davomi bo'lishi mumkin
+    pending = get_pending_listing()
+    if pending:
+        combined_text = f"{pending}\n{text}"
+        handle_listing_command(chat_id, combined_text, photo)
         return
 
     send_message(
@@ -86,9 +100,11 @@ def handle_listing_command(chat_id, text, photo):
     result = analyze_listing(text)
 
     if result["status"] == "missing":
+        set_pending_listing(text)
         send_message(chat_id, result["question"])
         return
 
+    clear_pending_listing()
     post_text = result["post_text"]
 
     if photo:
